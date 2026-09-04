@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studieassistent — Anslutningsingenjör Elkraft</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --bg: #1B1F24;
+    --panel: #22272E;
+    --panel-raised: #2A3038;
+    --sidebar: #191D22;
+    --line: #384049;
+    --text: #E7E9EC;
+    --text-dim: #9AA4AF;
+    --copper: #C4793D;
+    --copper-bright: #E0975B;
+    --amber: #E8B33D;
+    --ok: #6FAE7C;
+    --danger: #D9695F;
+    --radius: 3px;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;}
+  input,textarea{font-family:inherit;}
+
+  /* ---------- AUTH SCREEN ---------- */
+  #authScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      linear-gradient(180deg, rgba(196,121,61,0.08), transparent 260px),
+      var(--bg);
+    padding:24px;
+  }
+  .auth-card{
+    width:100%;
+    max-width:380px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:32px 28px;
+  }
+  .auth-rail{
+    height:3px;
+    margin:-32px -28px 24px;
+    background:linear-gradient(90deg, var(--copper), var(--amber));
+  }
+  .auth-card .eyebrow{font-family:var(--mono);font-size:12px;color:var(--copper-bright);margin-bottom:4px;}
+  .auth-card h1{font-family:var(--serif);font-size:22px;margin:0 0 20px;font-weight:600;}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{display:block;font-size:12.5px;color:var(--text-dim);margin-bottom:5px;}
+  .auth-field input{
+    width:100%;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:var(--radius);
+    font-size:14px;
+  }
+  .auth-field input:focus{outline:none;border-color:var(--copper);}
+  .auth-submit{
+    width:100%;
+    background:var(--copper);
+    border:none;
+    color:#1B1206;
+    font-weight:600;
+    font-size:14.5px;
+    padding:11px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .auth-submit:hover{background:var(--copper-bright);}
+  .auth-submit:disabled{opacity:0.5;cursor:not-allowed;}
+  .auth-switch{
+    text-align:center;
+    margin-top:16px;
+    font-size:13px;
+    color:var(--text-dim);
+  }
+  .auth-switch a{color:var(--copper-bright);cursor:pointer;text-decoration:none;}
+  .auth-msg{font-size:12.5px;margin-top:10px;min-height:16px;}
+  .auth-msg.err{color:var(--danger);}
+  .auth-msg.ok{color:var(--ok);}
+  .config-warning{
+    max-width:420px;
+    margin:0 auto 20px;
+    padding:14px 16px;
+    border:1px solid var(--danger);
+    border-radius:var(--radius);
+    color:var(--danger);
+    font-size:13px;
+    line-height:1.5;
+  }
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none; height:100vh;}
+  #app.active{display:flex;}
+
+  .sidebar{
+    width:260px;
+    flex-shrink:0;
+    background:var(--sidebar);
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+  }
+  .sidebar-top{padding:18px 16px 14px;border-bottom:1px solid var(--line);}
+  .brand{font-family:var(--serif);font-size:15.5px;font-weight:600;line-height:1.3;}
+  .brand .accent{color:var(--copper-bright);}
+  .new-chat-btn{
+    margin-top:14px;
+    width:100%;
+    background:transparent;
+    border:1px solid var(--copper);
+    color:var(--copper-bright);
+    font-size:13.5px;
+    font-weight:600;
+    padding:9px 12px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    text-align:left;
+  }
+  .new-chat-btn:hover{background:rgba(196,121,61,0.08);}
+
+  .sidebar-section{padding:14px 10px;overflow-y:auto;flex:1;}
+  .sidebar-label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-dim);
+    padding:6px 10px 8px;
+    letter-spacing:0.02em;
+  }
+  .project-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    padding:9px 10px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    color:var(--text-dim);
+    cursor:pointer;
+  }
+  .project-item:hover{background:var(--panel-raised); color:var(--text);}
+  .project-item.selected{background:var(--panel-raised); color:var(--text); border-left:2px solid var(--copper);}
+  .project-item .pname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .project-item .pdel{opacity:0; font-size:12px; color:var(--danger);}
+  .project-item:hover .pdel{opacity:0.8;}
+
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:9px 10px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    color:var(--text-dim);
+    cursor:pointer;
+  }
+  .nav-item:hover, .nav-item.active{background:var(--panel-raised); color:var(--text);}
+  .nav-item .dot{width:6px;height:6px;background:var(--amber);border-radius:1px;flex-shrink:0;}
+
+  .sidebar-bottom{
+    padding:12px 16px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;
+    color:var(--text-dim);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  .sidebar-bottom .email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sidebar-bottom button{
+    background:none;border:none;color:var(--copper-bright);
+    font-size:12.5px;cursor:pointer;flex-shrink:0;
+  }
+
+  .main{flex:1; display:flex; flex-direction:column; min-width:0;}
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px clamp(16px,3vw,32px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar h2{font-family:var(--serif); font-size:17px; margin:0; font-weight:600;}
+  .topbar .sub{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+  .download-wrap{position:relative;}
+  .download-btn{
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .download-btn:hover{border-color:var(--copper);}
+  .download-menu{
+    display:none;
+    position:absolute;
+    right:0;
+    top:calc(100% + 6px);
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    min-width:190px;
+    z-index:10;
+    overflow:hidden;
+  }
+  .download-menu.open{display:block;}
+  .download-menu button{
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    color:var(--text);
+    padding:10px 12px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .download-menu button:hover{background:var(--panel);}
+
+  /* views */
+  .view{flex:1; display:none; min-height:0; flex-direction:column;}
+  .view.active{display:flex;}
+
+  .chat-log{
+    flex:1;
+    overflow-y:auto;
+    padding:24px clamp(16px,3vw,40px);
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .msg{max-width:68ch; line-height:1.55; font-size:15px; white-space:pre-wrap;}
+  .msg .who{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:4px;}
+  .msg.user{align-self:flex-end; text-align:right;}
+  .msg.user .who{color:var(--copper-bright);}
+  .msg.assistant .who{color:var(--amber);}
+  .msg.system{align-self:center; color:var(--text-dim); font-size:13px; font-style:italic;}
+  .msg .bubble{padding:12px 15px; border-radius:var(--radius); background:var(--panel); border:1px solid var(--line); display:inline-block; text-align:left;}
+  .msg.user .bubble{background:linear-gradient(180deg,#2E2013,#241B10); border-color:#4A331B;}
+  .typing{display:inline-flex; gap:4px;}
+  .typing span{width:5px;height:5px;border-radius:50%;background:var(--amber);animation:blink 1.1s infinite ease-in-out;}
+  .typing span:nth-child(2){animation-delay:.15s;}
+  .typing span:nth-child(3){animation-delay:.3s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+
+  form.composer{
+    display:flex; gap:10px;
+    padding:16px clamp(16px,3vw,40px) 22px;
+    border-top:1px solid var(--line);
+    background:var(--panel);
+  }
+  form.composer textarea{
+    flex:1; resize:none;
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    font-size:14.5px; padding:11px 13px; border-radius:var(--radius);
+    line-height:1.4; min-height:44px; max-height:160px;
+  }
+  form.composer textarea:focus{outline:none; border-color:var(--copper);}
+  form.composer button{
+    background:var(--copper); border:none; color:#1B1206; font-weight:600; font-size:14px;
+    padding:0 20px; border-radius:var(--radius); cursor:pointer;
+  }
+  form.composer button:hover:not(:disabled){background:var(--copper-bright);}
+  form.composer button:disabled{opacity:.5; cursor:not-allowed;}
+
+  /* kursmaterial view */
+  .kursmaterial-body{padding:28px clamp(16px,3vw,40px); max-width:640px;}
+  .dropzone{
+    border:1px dashed var(--line); border-radius:var(--radius);
+    padding:28px 16px; text-align:center; color:var(--text-dim);
+    font-size:13.5px; cursor:pointer;
+  }
+  .dropzone.drag{border-color:var(--copper); background:rgba(196,121,61,0.06);}
+  .dropzone strong{color:var(--text);}
+  .dropzone input{display:none;}
+  .file-chip{
+    margin-top:10px; font-size:13px; background:var(--panel-raised); border:1px solid var(--line);
+    border-radius:var(--radius); padding:8px 10px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .file-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .btn-secondary{
+    margin-top:14px; background:var(--copper); border:none; color:#1B1206;
+    font-size:13.5px; font-weight:600; padding:10px 16px; border-radius:var(--radius); cursor:pointer;
+  }
+  .btn-secondary:hover:not(:disabled){background:var(--copper-bright);}
+  .btn-secondary:disabled{opacity:.5;cursor:not-allowed;}
+  .upload-status{margin-top:10px; font-size:12.5px; line-height:1.5;}
+  .upload-status.ok{color:var(--ok);}
+  .upload-status.err{color:var(--danger);}
+  .upload-status.pending{color:var(--text-dim);}
+  .hint{font-size:12.5px; color:var(--text-dim); line-height:1.55;}
+
+  /* settings view */
+  .settings-body{padding:28px clamp(16px,3vw,40px); max-width:520px;}
+  .settings-block{margin-bottom:26px;}
+  .settings-block h3{font-family:var(--mono); font-size:12px; color:var(--text-dim); margin:0 0 10px; font-weight:500;}
+  .settings-field{margin-bottom:12px;}
+  .settings-field label{display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:4px;}
+  .settings-field input{
+    width:100%; background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:12px; padding:8px 10px; border-radius:var(--radius);
+  }
+  .settings-field input:focus{outline:none; border-color:var(--copper);}
+
+  /* settings sub-navigation */
+  .settings-layout{display:flex; flex:1; min-height:0;}
+  .settings-nav{
+    width:200px; flex-shrink:0; border-right:1px solid var(--line);
+    padding:20px 10px; overflow-y:auto;
+  }
+  .settings-nav-item{
+    padding:9px 12px; border-radius:var(--radius); font-size:13.5px;
+    color:var(--text-dim); cursor:pointer; margin-bottom:2px;
+  }
+  .settings-nav-item:hover{background:var(--panel-raised); color:var(--text);}
+  .settings-nav-item.active{background:var(--panel-raised); color:var(--text); border-left:2px solid var(--copper);}
+  .settings-pane{display:none;}
+  .settings-pane.active{display:block;}
+  .theme-options{display:flex; gap:10px; margin-top:6px;}
+  .theme-option{
+    flex:1; border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 8px; text-align:center; cursor:pointer; font-size:12.5px; color:var(--text-dim);
+  }
+  .theme-option:hover{border-color:var(--copper);}
+  .theme-option.selected{border-color:var(--copper); color:var(--text); background:rgba(196,121,61,0.08);}
+  .theme-swatch{width:100%; height:34px; border-radius:2px; margin-bottom:8px; border:1px solid var(--line);}
+  .save-btn{
+    background:var(--copper); border:none; color:#1B1206; font-weight:600; font-size:13px;
+    padding:9px 16px; border-radius:var(--radius); cursor:pointer; margin-top:6px;
+  }
+  .save-btn:hover{background:var(--copper-bright);}
+  .save-msg{font-size:12.5px; margin-top:8px; min-height:16px;}
+  .save-msg.ok{color:var(--ok);}
+  .save-msg.err{color:var(--danger);}
+  .faq-item{margin-bottom:18px;}
+  .faq-item .q{font-size:13.5px; font-weight:600; margin-bottom:4px;}
+  .faq-item .a{font-size:13px; color:var(--text-dim); line-height:1.55;}
+  .about-logo{font-family:var(--serif); font-size:19px; font-weight:600; margin-bottom:6px;}
+
+  /* ---------------- LIGHT THEME ---------------- */
+  body[data-theme="light"]{
+    --bg: #F6F4F0;
+    --panel: #FFFFFF;
+    --panel-raised: #EFEBE3;
+    --sidebar: #ECE7DD;
+    --line: #D9D2C5;
+    --text: #23201B;
+    --text-dim: #6B6255;
+  }
+  body[data-theme="light"] .msg.user .bubble{background:linear-gradient(180deg,#FBEFE2,#F5E3CE); border-color:#E8CBA3;}
+  body[data-theme="light"] .auth-submit, body[data-theme="light"] .save-btn{color:#FFF9F2;}
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH SCREEN ================= -->
+<div id="authScreen">
+  <div style="width:100%;">
+    <div id="configWarning" class="config-warning" style="display:none;">
+      Appen är inte kopplad till Supabase än. Öppna den här filen i en textredigerare, hitta <code>SUPABASE_URL</code> och <code>SUPABASE_ANON_KEY</code> högst upp i koden, och fyll i värdena från ditt Supabase-projekt (Project Settings → API). Använd <strong>anon/public</strong>-nyckeln, inte service_role.
+    </div>
+    <div class="auth-card">
+      <div class="auth-rail"></div>
+      <div class="eyebrow">Studieassistent</div>
+      <h1 id="authTitle">Logga in</h1>
+      <form id="authForm">
+        <div class="auth-field">
+          <label for="authEmail">E-post</label>
+          <input type="email" id="authEmail" required autocomplete="email">
+        </div>
+        <div class="auth-field">
+          <label for="authPassword">Lösenord</label>
+          <input type="password" id="authPassword" required autocomplete="current-password" minlength="6">
+        </div>
+        <button type="submit" class="auth-submit" id="authSubmitBtn">Logga in</button>
+        <div class="auth-msg" id="authMsg"></div>
+      </form>
+      <div class="auth-switch" id="authSwitch">Inget konto än? <a id="authSwitchLink" data-switch="1">Skapa ett</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">Studieassistent<br><span class="accent">Anslutningsingenjör Elkraft</span></div>
+      <button class="new-chat-btn" id="newChatBtn">+ Ny chatt</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="nav-item" data-view="kursmaterial"><span class="dot"></span> Kursmaterial</div>
+      <div class="nav-item" data-view="settings"><span class="dot"></span> Inställningar</div>
+      <div class="sidebar-label" style="margin-top:14px;">Projekt</div>
+      <div id="projectList"></div>
+    </div>
+    <div class="sidebar-bottom">
+      <span class="email" id="userEmail"></span>
+      <button id="logoutBtn">Logga ut</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="topbarTitle">Ny chatt</h2>
+        <div class="sub" id="topbarSub">Fråga om kursmaterial, be om förklaringar eller hjälp med uppgifter</div>
+      </div>
+      <div class="download-wrap" id="downloadWrap" style="display:none;">
+        <button class="download-btn" id="downloadBtn">⬇ Ladda ner</button>
+        <div class="download-menu" id="downloadMenu">
+          <button id="downloadPdf">Som PDF</button>
+          <button id="downloadPptx">Som PowerPoint</button>
+          <button id="downloadMd">Som textfil (.md)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat view -->
+    <div class="view active" id="view-chat">
+      <div class="chat-log" id="chatLog">
+        <div class="msg system">Skriv ett meddelande för att börja, eller välj ett tidigare projekt i sidomenyn.</div>
+      </div>
+      <form class="composer" id="composer">
+        <textarea id="input" placeholder="T.ex. Kan du förklara hur jag dimensionerar en anslutning?" rows="1"></textarea>
+        <button type="submit" id="sendBtn">Skicka</button>
+      </form>
+    </div>
+
+    <!-- Kursmaterial view -->
+    <div class="view" id="view-kursmaterial">
+      <div class="kursmaterial-body">
+        <div class="dropzone" id="dropzone">
+          <div>Dra en PDF hit eller <strong>klicka för att välja fil</strong></div>
+          <input type="file" id="fileInput" accept="application/pdf">
+        </div>
+        <div id="fileChipHolder"></div>
+        <button class="btn-secondary" id="uploadBtn" disabled>Lägg till i kunskapsbasen</button>
+        <div class="upload-status" id="uploadStatus"></div>
+        <p class="hint" style="margin-top:14px;">Filen extraheras och sparas permanent i kunskapsbasen — ladda upp så många filer du vill.</p>
+      </div>
+    </div>
+
+    <!-- Settings view -->
+    <div class="view" id="view-settings">
+      <div class="settings-layout">
+        <div class="settings-nav">
+          <div class="settings-nav-item active" data-pane="general">Allmänt</div>
+          <div class="settings-nav-item" data-pane="account">Konto</div>
+          <div class="settings-nav-item" data-pane="security">Säkerhet och inloggning</div>
+          <div class="settings-nav-item" data-pane="storage">Lagring</div>
+          <div class="settings-nav-item" data-pane="help">Hjälpcenter</div>
+          <div class="settings-nav-item" data-pane="about">Om</div>
+        </div>
+
+        <div class="settings-body" style="flex:1; overflow-y:auto;">
+
+          <!-- Allmänt -->
+          <div class="settings-pane active" id="pane-general">
+            <div class="settings-block">
+              <h3>Profil</h3>
+              <div class="settings-field">
+                <label for="fullNameInput">Fullständigt namn</label>
+                <input type="text" id="fullNameInput" placeholder="Ditt namn" style="font-family:var(--sans); font-size:14px;">
+              </div>
+              <button class="save-btn" id="saveNameBtn">Spara namn</button>
+              <div class="save-msg" id="nameSaveMsg"></div>
+            </div>
+            <div class="settings-block">
+              <h3>Utseende</h3>
+              <div class="theme-options">
+                <div class="theme-option" data-theme-choice="light">
+                  <div class="theme-swatch" style="background:#F6F4F0;"></div>
+                  Ljust
+                </div>
+                <div class="theme-option selected" data-theme-choice="dark">
+                  <div class="theme-swatch" style="background:#1B1F24;"></div>
+                  Mörkt
+                </div>
+                <div class="theme-option" data-theme-choice="system">
+                  <div class="theme-swatch" style="background:linear-gradient(90deg,#F6F4F0 50%,#1B1F24 50%);"></div>
+                  Följ system
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Konto -->
+          <div class="settings-pane" id="pane-account">
+            <div class="settings-block">
+              <h3>Konto</h3>
+              <div class="settings-field">
+                <label>E-post</label>
+                <div class="hint" id="settingsEmail" style="font-family:var(--sans); font-size:14px; color:var(--text);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Säkerhet och inloggning -->
+          <div class="settings-pane" id="pane-security">
+            <div class="settings-block">
+              <h3>Byt lösenord</h3>
+              <div class="settings-field">
+                <label for="newPasswordInput">Nytt lösenord</label>
+                <input type="password" id="newPasswordInput" style="font-family:var(--sans); font-size:14px;" minlength="6" placeholder="Minst 6 tecken">
+              </div>
+              <button class="save-btn" id="savePasswordBtn">Uppdatera lösenord</button>
+              <div class="save-msg" id="passwordSaveMsg"></div>
+            </div>
+            <div class="settings-block">
+              <h3>Session</h3>
+              <button class="save-btn" id="settingsLogoutBtn" style="background:transparent; border:1px solid var(--danger); color:var(--danger);">Logga ut</button>
+            </div>
+          </div>
+
+          <!-- Lagring -->
+          <div class="settings-pane" id="pane-storage">
+            <div class="settings-block">
+              <h3>Kunskapsbas</h3>
+              <p class="hint">Uppladdat kursmaterial lagras permanent i en delad kunskapsbas som alla som använder appen söker i. Dina egna chattar och projekt är privata och syns bara för dig.</p>
+            </div>
+            <div class="settings-block">
+              <h3>Dina chattar</h3>
+              <p class="hint" id="storageProjectCount">Räknar…</p>
+            </div>
+          </div>
+
+          <!-- Hjälpcenter -->
+          <div class="settings-pane" id="pane-help">
+            <div class="settings-block">
+              <div class="faq-item">
+                <div class="q">Studieassistenten hittar inte mitt kursmaterial</div>
+                <div class="a">Gå till Kursmaterial i sidomenyn och kontrollera att filen laddats upp och fått bekräftelsen "Klart". Det kan ta någon sekund efter uppladdning innan materialet är sökbart.</div>
+              </div>
+              <div class="faq-item">
+                <div class="q">Hur sparas mina chattar?</div>
+                <div class="a">Varje ny chatt sparas automatiskt som ett eget projekt i sidomenyn så snart du skickar första meddelandet. Du kan alltid gå tillbaka till tidigare chattar.</div>
+              </div>
+              <div class="faq-item">
+                <div class="q">Kan jag ladda ner en chatt?</div>
+                <div class="a">Ja — öppna chatten och klicka på nedladdningsknappen uppe till höger. Du kan välja PDF, PowerPoint eller textfil.</div>
+              </div>
+              <div class="faq-item">
+                <div class="q">Studieassistenten löser inte uppgiften åt mig direkt</div>
+                <div class="a">Det är avsiktligt. Assistenten är byggd för att guida dig fram till svaret istället för att ge det direkt, så du faktiskt lär dig och klarar liknande uppgifter själv.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Om -->
+          <div class="settings-pane" id="pane-about">
+            <div class="settings-block">
+              <div class="about-logo">Studieassistent</div>
+              <p class="hint">Anslutningsingenjör Elkraft — version 1.0</p>
+              <p class="hint" style="margin-top:14px;">En pedagogisk AI-assistent byggd för att hjälpa dig förstå kursmaterial och uppgifter under utbildningen till anslutningsingenjör, och som stöd i yrket efter examen.</p>
+            </div>
+          </div>
+
+          <!-- Tekniska fält (dolda, används av appen internt) -->
+          <div style="display:none;">
+            <input type="text" id="chatUrl" value="https://theo-hi.app.n8n.cloud/webhook/0043a12f-00d2-4b47-bb0c-d52b7d8dadfa/chat">
+            <input type="text" id="uploadUrl" value="https://theo-hi.app.n8n.cloud/webhook/b856aab3-8ce5-4db0-a3aa-02de95eba000">
+            <input type="text" id="fieldName" value="Kursmaterial (PDF)">
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* =====================================================================
+     KONFIGURATION — fyll i dina egna Supabase-uppgifter här (anon key,
+     INTE service_role). Hittas i Supabase: Project Settings -> API.
+     ===================================================================== */
+  const SUPABASE_URL = 'https://mpvrkhmgzirlzcnnzqcx.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wdnJraG1nemlybHpjbm56cWN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MzkyMzQsImV4cCI6MjEwNDExNTIzNH0.K2JcMwWy_6QI0eQZ557_ajTK-Y3zlaXz3xdGkZXSdCM';
+
+  const isConfigured = !SUPABASE_URL.includes('DITT-PROJEKT') && !SUPABASE_ANON_KEY.includes('DIN-ANON-KEY');
+  if (!isConfigured) {
+    document.getElementById('configWarning').style.display = 'block';
+  }
+
+  const supabaseClient = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  /* ---------------- STATE ---------------- */
+  let currentUser = null;
+  let currentProjectId = null;
+  let currentMessages = []; // {role, content}
+  let authMode = 'login';
+
+  /* ---------------- AUTH ---------------- */
+  const authForm = document.getElementById('authForm');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authMsg = document.getElementById('authMsg');
+  const authTitle = document.getElementById('authTitle');
+  const authSubmitBtn = document.getElementById('authSubmitBtn');
+  const authSwitchLink = document.getElementById('authSwitchLink');
+  const authSwitch = document.getElementById('authSwitch');
+
+  function updateAuthSwitchUI() {
+    authTitle.textContent = authMode === 'login' ? 'Logga in' : 'Skapa konto';
+    authSubmitBtn.textContent = authMode === 'login' ? 'Logga in' : 'Skapa konto';
+    authSwitch.innerHTML = authMode === 'login'
+      ? 'Inget konto än? <a data-switch="1">Skapa ett</a>'
+      : 'Har du redan ett konto? <a data-switch="1">Logga in</a>';
+    authMsg.textContent = '';
+  }
+
+  authSwitch.addEventListener('click', (e) => {
+    if (e.target.dataset.switch !== '1') return;
+    authMode = authMode === 'login' ? 'signup' : 'login';
+    updateAuthSwitchUI();
+  });
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!supabaseClient) { authMsg.className = 'auth-msg err'; authMsg.textContent = 'Appen är inte konfigurerad än (se meddelande ovan).'; return; }
+    authSubmitBtn.disabled = true;
+    authMsg.className = 'auth-msg';
+    authMsg.textContent = '';
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+
+    try {
+      if (authMode === 'login') {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) throw error;
+        authMsg.className = 'auth-msg ok';
+        authMsg.textContent = 'Konto skapat. Kolla din e-post om bekräftelse krävs, logga sedan in.';
+      }
+    } catch (err) {
+      authMsg.className = 'auth-msg err';
+      authMsg.textContent = err.message || 'Något gick fel.';
+    } finally {
+      authSubmitBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (supabase) await supabaseClient.auth.signOut();
+    location.reload();
+  });
+
+  async function initAuth() {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      enterApp();
+    }
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        currentUser = session.user;
+        enterApp();
+      }
+    });
+  }
+
+  function enterApp() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    document.getElementById('userEmail').textContent = currentUser.email;
+    document.getElementById('settingsEmail').textContent = currentUser.email;
+    const savedName = currentUser.user_metadata && currentUser.user_metadata.full_name;
+    if (savedName) document.getElementById('fullNameInput').value = savedName;
+    loadProjects();
+  }
+
+  /* ---------------- NAVIGATION ---------------- */
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => switchView(el.dataset.view));
+  });
+
+  function switchView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const target = document.getElementById('view-' + name);
+    if (target) target.classList.add('active');
+    const nav = document.querySelector('.nav-item[data-view="' + name + '"]');
+    if (nav) nav.classList.add('active');
+
+    const titles = { chat: 'Ny chatt', kursmaterial: 'Kursmaterial', settings: 'Inställningar' };
+    const subs = {
+      chat: 'Fråga om kursmaterial, be om förklaringar eller hjälp med uppgifter',
+      kursmaterial: 'Ladda upp material till kunskapsbasen',
+      settings: 'Konto och anslutningar'
+    };
+    document.getElementById('topbarTitle').textContent = titles[name] || 'Studieassistent';
+    document.getElementById('topbarSub').textContent = subs[name] || '';
+    document.getElementById('downloadWrap').style.display = (name === 'chat') ? '' : 'none';
+
+    document.querySelectorAll('.project-item').forEach(p => p.classList.remove('selected'));
+  }
+
+  /* ---------------- PROJECTS / CHATS ---------------- */
+  const projectList = document.getElementById('projectList');
+
+  async function loadProjects() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from('projects')
+      .select('id, name, created_at')
+      .order('created_at', { ascending: false });
+    if (error) { console.error(error); return; }
+    projectList.innerHTML = '';
+    (data || []).forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'project-item';
+      item.dataset.id = p.id;
+      const name = document.createElement('span');
+      name.className = 'pname';
+      name.textContent = p.name;
+      const del = document.createElement('span');
+      del.className = 'pdel';
+      del.textContent = '✕';
+      del.addEventListener('click', (e) => { e.stopPropagation(); deleteProject(p.id); });
+      item.appendChild(name);
+      item.appendChild(del);
+      item.addEventListener('click', () => openProject(p.id, p.name));
+      projectList.appendChild(item);
+    });
+  }
+
+  async function deleteProject(id) {
+    if (!confirm('Ta bort den här chatten permanent?')) return;
+    await supabaseClient.from('projects').delete().eq('id', id);
+    if (currentProjectId === id) { currentProjectId = null; startNewChatUI(); }
+    loadProjects();
+  }
+
+  async function openProject(id, name) {
+    currentProjectId = id;
+    switchView('chat');
+    document.getElementById('topbarTitle').textContent = name;
+    document.querySelectorAll('.project-item').forEach(p => p.classList.toggle('selected', p.dataset.id === id));
+
+    const { data, error } = await supabaseClient
+      .from('messages')
+      .select('role, content')
+      .eq('project_id', id)
+      .order('created_at', { ascending: true });
+    if (error) { console.error(error); return; }
+
+    currentMessages = data || [];
+    chatLog.innerHTML = '';
+    if (currentMessages.length === 0) {
+      addMessageToDOM('system', 'Inga meddelanden än i den här chatten.');
+    } else {
+      currentMessages.forEach(m => addMessageToDOM(m.role, m.content));
+    }
+  }
+
+  document.getElementById('newChatBtn').addEventListener('click', startNewChatUI);
+
+  function startNewChatUI() {
+    currentProjectId = null;
+    currentMessages = [];
+    chatLog.innerHTML = '';
+    addMessageToDOM('system', 'Skriv ett meddelande för att börja en ny chatt.');
+    switchView('chat');
+  }
+
+  async function ensureProject(firstMessage) {
+    if (currentProjectId) return currentProjectId;
+    const name = firstMessage.length > 40 ? firstMessage.slice(0, 40) + '…' : firstMessage;
+    const { data, error } = await supabaseClient
+      .from('projects')
+      .insert({ user_id: currentUser.id, name })
+      .select('id')
+      .single();
+    if (error) { console.error(error); return null; }
+    currentProjectId = data.id;
+    loadProjects();
+    return currentProjectId;
+  }
+
+  async function saveMessage(role, content) {
+    if (!currentProjectId) return;
+    await supabaseClient.from('messages').insert({
+      project_id: currentProjectId,
+      user_id: currentUser.id,
+      role, content
+    });
+  }
+
+  /* ---------------- CHAT ---------------- */
+  const chatLog = document.getElementById('chatLog');
+  const composer = document.getElementById('composer');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+  const chatUrlField = document.getElementById('chatUrl');
+
+  function addMessageToDOM(who, text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + who;
+    if (who === 'system') {
+      wrap.textContent = text;
+    } else {
+      const label = document.createElement('div');
+      label.className = 'who';
+      label.textContent = who === 'user' ? 'Du' : 'Studieassistent';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      wrap.appendChild(label);
+      wrap.appendChild(bubble);
+    }
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return wrap;
+  }
+
+  function addTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg assistant';
+    wrap.id = 'typingIndicator';
+    const label = document.createElement('div');
+    label.className = 'who';
+    label.textContent = 'Studieassistent';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble typing';
+    bubble.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+  function removeTyping() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+  }
+
+  function extractReply(data) {
+    if (typeof data === 'string') return data;
+    if (!data) return '';
+    if (typeof data.output === 'string') return data.output;
+    if (typeof data.text === 'string') return data.text;
+    if (Array.isArray(data) && data[0]) return extractReply(data[0]);
+    if (data.json) return extractReply(data.json);
+    return JSON.stringify(data);
+  }
+
+  composer.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || !currentUser) return;
+
+    if (chatLog.children.length === 1 && chatLog.children[0].classList.contains('system')) {
+      chatLog.innerHTML = '';
+    }
+
+    addMessageToDOM('user', text);
+    currentMessages.push({ role: 'user', content: text });
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    addTyping();
+
+    const projectId = await ensureProject(text);
+    if (projectId) await saveMessage('user', text);
+
+    try {
+      const res = await fetch(chatUrlField.value.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatInput: text,
+          sessionId: currentUser.id + '-' + (projectId || 'temp'),
+          action: 'sendMessage'
+        })
+      });
+      if (!res.ok) throw new Error('Servern svarade med status ' + res.status);
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { data = raw; }
+
+      removeTyping();
+      const reply = extractReply(data) || 'Inget svar mottogs.';
+      addMessageToDOM('assistant', reply);
+      currentMessages.push({ role: 'assistant', content: reply });
+      if (projectId) await saveMessage('assistant', reply);
+
+    } catch (err) {
+      removeTyping();
+      addMessageToDOM('system', 'Kunde inte nå studieassistenten (' + err.message + '). Kontrollera webhook-adressen under Inställningar.');
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); composer.requestSubmit(); }
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+
+  /* ---------------- DOWNLOAD ---------------- */
+  const downloadBtn = document.getElementById('downloadBtn');
+  const downloadMenu = document.getElementById('downloadMenu');
+  downloadBtn.addEventListener('click', () => downloadMenu.classList.toggle('open'));
+  document.addEventListener('click', (e) => {
+    if (!downloadBtn.contains(e.target) && !downloadMenu.contains(e.target)) downloadMenu.classList.remove('open');
+  });
+
+  function currentTitle() {
+    const t = document.getElementById('topbarTitle').textContent;
+    return t && t !== 'Ny chatt' ? t : 'Studieassistent-chatt';
+  }
+
+  document.getElementById('downloadMd').addEventListener('click', () => {
+    if (currentMessages.length === 0) return;
+    let out = '# ' + currentTitle() + '\n\n';
+    currentMessages.forEach(m => {
+      out += '**' + (m.role === 'user' ? 'Du' : 'Studieassistent') + ':**\n' + m.content + '\n\n';
+    });
+    const blob = new Blob([out], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = currentTitle().replace(/[^a-zA-Z0-9åäöÅÄÖ ]/g, '').trim() + '.md';
+    a.click();
+    downloadMenu.classList.remove('open');
+  });
+
+  document.getElementById('downloadPdf').addEventListener('click', () => {
+    if (currentMessages.length === 0) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const marginX = 48;
+    let y = 56;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const maxWidth = doc.internal.pageSize.getWidth() - marginX * 2;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(currentTitle(), marginX, y);
+    y += 28;
+
+    currentMessages.forEach(m => {
+      if (y > pageHeight - 80) { doc.addPage(); y = 56; }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(m.role === 'user' ? 150 : 20, m.role === 'user' ? 90 : 20, 20);
+      doc.text(m.role === 'user' ? 'DU' : 'STUDIEASSISTENT', marginX, y);
+      y += 14;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(20, 20, 20);
+      const lines = doc.splitTextToSize(m.content, maxWidth);
+      lines.forEach(line => {
+        if (y > pageHeight - 50) { doc.addPage(); y = 56; }
+        doc.text(line, marginX, y);
+        y += 15;
+      });
+      y += 16;
+    });
+
+    doc.save(currentTitle().replace(/[^a-zA-Z0-9åäöÅÄÖ ]/g, '').trim() + '.pdf');
+    downloadMenu.classList.remove('open');
+  });
+
+  document.getElementById('downloadPptx').addEventListener('click', () => {
+    if (currentMessages.length === 0) return;
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'A4', width: 10, height: 5.63 });
+    pptx.layout = 'A4';
+
+    const titleSlide = pptx.addSlide();
+    titleSlide.background = { color: '1B1F24' };
+    titleSlide.addText(currentTitle(), {
+      x: 0.5, y: 2.2, w: 9, h: 1.2, fontSize: 28, bold: true, color: 'E7E9EC', fontFace: 'Georgia'
+    });
+    titleSlide.addText('Studieassistent — Anslutningsingenjör Elkraft', {
+      x: 0.5, y: 3.2, w: 9, h: 0.5, fontSize: 13, color: 'C4793D'
+    });
+
+    currentMessages.forEach(m => {
+      const slide = pptx.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      slide.addText(m.role === 'user' ? 'DU FRÅGADE' : 'STUDIEASSISTENTEN SVARADE', {
+        x: 0.4, y: 0.3, w: 9, h: 0.4, fontSize: 12, bold: true, color: m.role === 'user' ? 'C4793D' : '8A6A1E'
+      });
+      slide.addText(m.content, {
+        x: 0.4, y: 0.8, w: 9.2, h: 4.6, fontSize: 14, color: '222222', valign: 'top', autoFit: true
+      });
+    });
+
+    pptx.writeFile({ fileName: currentTitle().replace(/[^a-zA-Z0-9åäöÅÄÖ ]/g, '').trim() + '.pptx' });
+    downloadMenu.classList.remove('open');
+  });
+
+  /* ---------------- KURSMATERIAL UPLOAD (oförändrat) ---------------- */
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileChipHolder = document.getElementById('fileChipHolder');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadStatus = document.getElementById('uploadStatus');
+  const uploadUrlField = document.getElementById('uploadUrl');
+  const fieldNameField = document.getElementById('fieldName');
+  let selectedFile = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+  function setFile(file) {
+    if (file.type !== 'application/pdf') {
+      uploadStatus.className = 'upload-status err';
+      uploadStatus.textContent = 'Endast PDF stöds just nu.';
+      return;
+    }
+    selectedFile = file;
+    fileChipHolder.innerHTML = '';
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = file.name;
+    const size = document.createElement('span'); size.textContent = Math.round(file.size / 1024) + ' kB';
+    chip.appendChild(name); chip.appendChild(size);
+    fileChipHolder.appendChild(chip);
+    uploadBtn.disabled = false;
+    uploadStatus.className = 'upload-status';
+    uploadStatus.textContent = '';
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    uploadBtn.disabled = true;
+    uploadStatus.className = 'upload-status pending';
+    uploadStatus.textContent = 'Laddar upp och bearbetar …';
+    try {
+      const fd = new FormData();
+      fd.append(fieldNameField.value.trim(), selectedFile);
+      const res = await fetch(uploadUrlField.value.trim(), { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Servern svarade med status ' + res.status);
+      uploadStatus.className = 'upload-status ok';
+      uploadStatus.textContent = 'Klart. Materialet är tillagt i kunskapsbasen.';
+      selectedFile = null;
+      fileInput.value = '';
+      fileChipHolder.innerHTML = '';
+    } catch (err) {
+      uploadStatus.className = 'upload-status err';
+      uploadStatus.textContent = 'Något gick fel (' + err.message + ').';
+      uploadBtn.disabled = false;
+    }
+  });
+
+  /* ---------------- SETTINGS: SUB-NAVIGATION ---------------- */
+  document.querySelectorAll('.settings-nav-item').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.settings-pane').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('pane-' + el.dataset.pane).classList.add('active');
+      if (el.dataset.pane === 'storage') refreshStorageInfo();
+    });
+  });
+
+  /* ---------------- THEME ---------------- */
+  let currentTheme = 'dark';
+
+  function applyTheme(choice) {
+    currentTheme = choice;
+    document.querySelectorAll('.theme-option').forEach(o => o.classList.toggle('selected', o.dataset.themeChoice === choice));
+    let effective = choice;
+    if (choice === 'system') {
+      effective = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.body.setAttribute('data-theme', effective === 'light' ? 'light' : 'dark');
+  }
+
+  document.querySelectorAll('.theme-option').forEach(el => {
+    el.addEventListener('click', () => applyTheme(el.dataset.themeChoice));
+  });
+
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (currentTheme === 'system') applyTheme('system');
+  });
+
+  /* ---------------- PROFILE: FULL NAME ---------------- */
+  const fullNameInput = document.getElementById('fullNameInput');
+  const saveNameBtn = document.getElementById('saveNameBtn');
+  const nameSaveMsg = document.getElementById('nameSaveMsg');
+
+  saveNameBtn.addEventListener('click', async () => {
+    if (!supabaseClient || !currentUser) return;
+    const name = fullNameInput.value.trim();
+    saveNameBtn.disabled = true;
+    nameSaveMsg.className = 'save-msg';
+    nameSaveMsg.textContent = '';
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ data: { full_name: name } });
+      if (error) throw error;
+      nameSaveMsg.className = 'save-msg ok';
+      nameSaveMsg.textContent = 'Sparat.';
+    } catch (err) {
+      nameSaveMsg.className = 'save-msg err';
+      nameSaveMsg.textContent = err.message || 'Kunde inte spara.';
+    } finally {
+      saveNameBtn.disabled = false;
+    }
+  });
+
+  /* ---------------- SECURITY: PASSWORD ---------------- */
+  const newPasswordInput = document.getElementById('newPasswordInput');
+  const savePasswordBtn = document.getElementById('savePasswordBtn');
+  const passwordSaveMsg = document.getElementById('passwordSaveMsg');
+
+  savePasswordBtn.addEventListener('click', async () => {
+    if (!supabaseClient) return;
+    const pw = newPasswordInput.value;
+    if (pw.length < 6) {
+      passwordSaveMsg.className = 'save-msg err';
+      passwordSaveMsg.textContent = 'Lösenordet måste vara minst 6 tecken.';
+      return;
+    }
+    savePasswordBtn.disabled = true;
+    passwordSaveMsg.className = 'save-msg';
+    passwordSaveMsg.textContent = '';
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: pw });
+      if (error) throw error;
+      passwordSaveMsg.className = 'save-msg ok';
+      passwordSaveMsg.textContent = 'Lösenordet är uppdaterat.';
+      newPasswordInput.value = '';
+    } catch (err) {
+      passwordSaveMsg.className = 'save-msg err';
+      passwordSaveMsg.textContent = err.message || 'Kunde inte uppdatera lösenordet.';
+    } finally {
+      savePasswordBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('settingsLogoutBtn').addEventListener('click', () => {
+    document.getElementById('logoutBtn').click();
+  });
+
+  /* ---------------- STORAGE INFO ---------------- */
+  async function refreshStorageInfo() {
+    const el = document.getElementById('storageProjectCount');
+    if (!supabaseClient || !currentUser) return;
+    el.textContent = 'Räknar…';
+    try {
+      const { count, error } = await supabaseClient
+        .from('projects')
+        .select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      el.textContent = 'Du har ' + (count ?? 0) + ' sparade chattar.';
+    } catch (err) {
+      el.textContent = 'Kunde inte hämta antalet just nu.';
+    }
+  }
+
+  /* ---------------- BOOT ---------------- */
+  initAuth();
+</script>
+</body>
+</html>
